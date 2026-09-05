@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anotasi Sentimen Komentar</title>
+<style>
+/* Sengaja tanpa CDN apa pun: berkas ini harus jalan dari mana saja, termasuk
+   dibuka langsung dari berkas lokal tanpa internet. Anotator tidak boleh
+   terhalang oleh pemuatan yang gagal. */
+:root{
+  --bg:#f6f7f9; --card:#fff; --ink:#16181d; --ink2:#4b5563; --muted:#7c8593;
+  --line:#e2e5ea; --pos:#0f766e; --pos-bg:#ecfdf5; --neg:#b91c1c; --neg-bg:#fef2f2;
+  --neu:#57534e; --neu-bg:#f5f5f4; --accent:#4338ca; --accent-bg:#eef2ff;
+  --warn:#92400e; --warn-bg:#fffbeb;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;cursor:pointer}
+code{background:#eef0f3;padding:1px 5px;border-radius:4px;font-size:.9em}
+
+.bar{background:var(--card);border-bottom:1px solid var(--line);padding:10px 20px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+.bar h1{font-size:15px;margin:0;font-weight:650}
+.bar .spacer{flex:1}
+.pill{font-size:12px;color:var(--ink2);background:#f1f3f6;border-radius:999px;padding:3px 10px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:7px 13px;font-size:13px;
+  font-weight:550;color:var(--ink2)}
+.btn:hover{background:#f7f8fa}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#3730a3}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+.wrap{max-width:840px;margin:0 auto;padding:22px 20px 80px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+
+.progress{height:6px;background:#e8eaee;border-radius:999px;overflow:hidden;margin:14px 0 6px}
+.progress > i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s}
+.meta{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+
+.komentar{font-size:20px;line-height:1.6;white-space:pre-wrap;word-break:break-word;
+  margin:18px 0 6px;padding:18px;background:#fbfcfd;border:1px solid var(--line);border-radius:12px}
+.sumber{font-size:12px;color:var(--muted);margin-bottom:18px}
+
+.pilihan{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.pilihan button{border:2px solid var(--line);background:#fff;border-radius:12px;padding:16px 10px;
+  font-weight:650;font-size:15px;color:var(--ink2);display:flex;flex-direction:column;gap:3px;align-items:center}
+.pilihan button small{font-weight:500;font-size:11px;color:var(--muted)}
+.pilihan button:hover{border-color:#c7ccd4}
+.pilihan button[data-v="positive"].on{border-color:var(--pos);background:var(--pos-bg);color:var(--pos)}
+.pilihan button[data-v="neutral"].on{border-color:var(--neu);background:var(--neu-bg);color:var(--neu)}
+.pilihan button[data-v="negative"].on{border-color:var(--neg);background:var(--neg-bg);color:var(--neg)}
+
+.baris-bawah{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center}
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;
+  font-size:13px;resize:vertical;min-height:52px;margin-top:12px}
+
+.model{margin-top:16px;border:1px dashed var(--line);border-radius:12px;padding:14px;background:#fcfcfd}
+.model.terbuka{border-style:solid;background:var(--accent-bg);border-color:#c7d2fe}
+.model .judul{font-size:12px;font-weight:650;color:var(--ink2);text-transform:uppercase;letter-spacing:.04em}
+.model .isi{margin-top:6px;font-size:14px;color:var(--ink2)}
+.model .nilai{font-weight:700}
+.model .nilai.positive{color:var(--pos)} .model .nilai.negative{color:var(--neg)} .model .nilai.neutral{color:var(--neu)}
+
+.nav{display:flex;justify-content:space-between;align-items:center;margin-top:18px;gap:10px;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--muted)}
+.kbd{display:inline-block;border:1px solid #d3d7de;border-bottom-width:2px;border-radius:5px;
+  padding:0 5px;font-size:11px;background:#fff;font-family:ui-monospace,monospace}
+
+.tirai{position:fixed;inset:0;background:rgba(15,18,25,.55);display:none;z-index:40;overflow-y:auto;padding:30px 16px}
+.tirai.on{display:block}
+.panel{background:#fff;max-width:820px;margin:0 auto;border-radius:16px;padding:26px}
+.panel h2{margin:0 0 4px;font-size:20px}
+.panel h3{margin:22px 0 6px;font-size:15px}
+.panel table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+.panel th,.panel td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+.panel th{background:#f7f8fa}
+.panel blockquote{margin:6px 0;padding:8px 12px;border-left:3px solid var(--line);color:var(--ink2);
+  background:#fbfcfd;font-size:13px}
+.panel ol,.panel ul{padding-left:20px}
+.panel li{margin:5px 0}
+
+.info{background:var(--warn-bg);border:1px solid #fde68a;color:var(--warn);border-radius:10px;
+  padding:12px 14px;font-size:13px;margin:14px 0}
+.info.biru{background:var(--accent-bg);border-color:#c7d2fe;color:#3730a3}
+
+.drop{border:2px dashed #cbd2dc;border-radius:14px;padding:40px 20px;text-align:center;background:#fbfcfd}
+.drop.aktif{border-color:var(--accent);background:var(--accent-bg)}
+label.f{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin:14px 0 4px}
+input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:14px}
+.sembunyi{display:none !important}
+@media(max-width:560px){.pilihan{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>Anotasi Sentimen Komentar</h1>
+  <span class="pill" id="pill-berkas">belum ada berkas</span>
+  <span class="pill" id="pill-anotator"></span>
+  <span class="spacer"></span>
+  <button class="btn" id="btn-pedoman">Pedoman</button>
+  <button class="btn" id="btn-ekspor" disabled>Unduh Hasil</button>
+</div>
+
+<div class="wrap">
+
+  <!-- ------------------------------------------------------- layar muat -->
+  <section id="layar-muat">
+    <div class="card">
+      <h2 style="margin:0 0 6px;font-size:19px">Mulai anotasi</h2>
+      <p style="margin:0;color:var(--ink2);font-size:14px">
+        Buka berkas anotasi (<code>.csv</code>) yang diberikan peneliti. Berkas tidak dikirim ke mana
+        pun &mdash; seluruh pekerjaan berlangsung di peramban Anda sendiri.
+      </p>
+
+      <div class="drop" id="drop" style="margin-top:18px">
+        <p style="margin:0 0 12px;color:var(--muted);font-size:14px">Seret berkas ke sini, atau</p>
+        <input type="file" id="berkas" accept=".csv,text/csv" style="display:none">
+        <button class="btn primary" id="btn-pilih">Pilih berkas CSV</button>
+      </div>
+
+      <label class="f" for="nama">Nama anotator</label>
+      <input type="text" id="nama" placeholder="mis. Anotator 1" autocomplete="off">
+
+      <label class="f" for="mode">Anda mengisi kolom</label>
+      <select id="mode">
+        <option value="label">label &mdash; anotator pertama</option>
+        <option value="label_2">label_2 &mdash; anotator kedua</option>
+      </select>
+      <p class="hint" style="margin-top:6px">
+        Anotator kedua mengerjakan sebagian baris yang sama <strong>tanpa melihat</strong> label
+        anotator pertama. Dari situ dihitung tingkat kesepakatan (Cohen's kappa).
+      </p>
+
+      <div class="info biru" style="margin-top:18px">
+        Sebelum mulai, baca <strong>Pedoman</strong> di kanan atas. Membacanya sepuluh menit
+        menghemat berjam-jam perbaikan, dan konsistensi antar anotator itulah yang menentukan
+        mutu seluruh evaluasi.
+      </div>
+    </div>
+  </section>
+
+  <!-- --------------------------------------------------- layar anotasi -->
+  <section id="layar-anotasi" class="sembunyi">
+    <div class="info sembunyi" id="tanpa-simpanan">
+      <strong>Penyimpanan otomatis tidak aktif</strong> di peramban ini &mdash; biasanya karena berkas
+      dibuka langsung dari komputer (<code>file://</code>). Aplikasi tetap berjalan penuh, tetapi
+      kemajuan hilang bila tab ditutup. Tekan <strong>Unduh Hasil</strong> sebelum berhenti, atau
+      minta peneliti menghosting aplikasinya.
+    </div>
+
+    <div class="card">
+      <div class="progress"><i id="bar"></i></div>
+      <div class="meta">
+        <span id="posisi"></span>
+        <span id="ringkas"></span>
+      </div>
+
+      <div class="komentar" id="komentar"></div>
+      <div class="sumber" id="sumber"></div>
+
+      <div class="pilihan">
+        <button data-v="positive">Positif <small>tombol 1</small></button>
+        <button data-v="neutral">Netral <small>tombol 2</small></button>
+        <button data-v="negative">Negatif <small>tombol 3</small></button>
+      </div>
+
+      <div class="baris-bawah">
+        <button class="btn" id="btn-takjelas">Tidak jelas <span class="kbd">0</span></button>
+        <button class="btn" id="btn-hapus">Kosongkan</button>
+        <span class="hint" id="status-simpan"></span>
+      </div>
+
+      <textarea id="catatan" placeholder="Catatan (opsional) — tulis alasan bila kasusnya sulit, supaya anotator lain memutuskan dengan cara yang sama."></textarea>
+
+      <div class="model sembunyi" id="model">
+        <div class="judul">Tebakan model</div>
+        <div class="isi" id="model-isi"></div>
+      </div>
+
+      <div class="nav">
+        <div>
+          <button class="btn" id="btn-prev">&larr; Sebelumnya</button>
+          <button class="btn" id="btn-next">Berikutnya &rarr;</button>
+        </div>
+        <div>
+          <button class="btn" id="btn-lompat">Ke baris pertama yang kosong</button>
+        </div>
+      </div>
+
+      <p class="hint" style="margin-top:12px">
+        Pintasan: <span class="kbd">1</span> positif &middot; <span class="kbd">2</span> netral &middot;
+        <span class="kbd">3</span> negatif &middot; <span class="kbd">0</span> tidak jelas &middot;
+        <span class="kbd">&larr;</span> <span class="kbd">&rarr;</span> pindah baris.
+        Kemajuan tersimpan otomatis di peramban ini.
+      </p>
+    </div>
+  </section>
+</div>
+
+<!-- ------------------------------------------------------------ pedoman -->
+<div class="tirai" id="tirai">
+  <div class="panel">
+    <div style="display:flex;align-items:start;gap:14px">
+      <div style="flex:1">
+        <h2>Pedoman Anotasi Sentimen Komentar YouTube</h2>
+        <p style="margin:0;color:var(--muted);font-size:13px">Versi 1.0 &mdash; 5 September 2026</p>
+      </div>
+      <button class="btn" id="btn-tutup">Tutup</button>
+    </div>
+
+    <h3>1. Apa yang dinilai</h3>
+    <p style="font-size:14px;color:var(--ink2)">
+      Yang dinilai adalah <strong>sikap yang dinyatakan penulis di dalam komentar itu</strong> &mdash;
+      bukan kebenaran isinya, bukan pendapat Anda tentang isinya, dan bukan sikap terhadap satu
+      sasaran tertentu. Satu komentar mendapat satu label (sentimen tingkat dokumen).
+    </p>
+    <table>
+      <tr><th style="width:90px">Label</th><th>Diberikan bila komentar&hellip;</th></tr>
+      <tr><td><strong>positif</strong></td><td>memuji, mendukung, berterima kasih, mengapresiasi, mendoakan yang baik, menyatakan kepuasan atau optimisme</td></tr>
+      <tr><td><strong>negatif</strong></td><td>mengkritik, marah, kecewa, menuduh, menyindir, mengejek, curiga, pesimis, atau menuntut</td></tr>
+      <tr><td><strong>netral</strong></td><td>menyampaikan informasi, bertanya, mengutip, atau menyatakan sesuatu tanpa sikap yang jelas</td></tr>
+    </table>
+
+    <h3>2. Aturan keputusan</h3>
+    <p style="font-size:13px;color:var(--muted);margin:0">Terapkan berurutan; berhenti pada aturan pertama yang berlaku.</p>
+    <ol style="font-size:14px;color:var(--ink2)">
+      <li><strong>Sarkasme dinilai menurut maksud, bukan kata harfiah.</strong>
+        <blockquote>"Mantap sekali kinerjanya, rakyat makin sengsara" &rarr; <strong>negatif</strong></blockquote>
+        Penanda: pujian berlebihan yang diikuti akibat buruk, "wow/hebat" pada konteks jelas buruk,
+        emotikon tepuk tangan pada kalimat kritik.</li>
+      <li><strong>Campuran: pilih yang dominan.</strong>
+        <blockquote>"Programnya bagus tapi pelaksanaannya kacau" &rarr; <strong>negatif</strong></blockquote>
+        Bila benar-benar seimbang &rarr; netral. Gunakan hemat-hemat.</li>
+      <li><strong>Pertanyaan murni &rarr; netral. Pertanyaan retoris &rarr; ikut maksudnya.</strong>
+        <blockquote>"Kapan sidangnya digelar?" &rarr; netral &nbsp;|&nbsp; "Kapan negara ini adil?" &rarr; negatif</blockquote></li>
+      <li><strong>Doa dan harapan.</strong> "Semoga makin amanah" &rarr; positif; "Semoga kena karma" &rarr; negatif.</li>
+      <li><strong>Salam dan ucapan agama tanpa sikap &rarr; netral.</strong>
+        "Alhamdulillah akhirnya ditangkap" &rarr; positif, karena ada sikap lega.</li>
+      <li><strong>Umpatan biasanya negatif</strong>, kecuali umpatan akrab yang memuji
+        ("anjir keren banget" &rarr; positif).</li>
+      <li><strong>Kutipan berita atau fakta tanpa komentar &rarr; netral.</strong></li>
+      <li><strong>Komentar tentang video, host, atau komentator lain tetap dinilai apa adanya.</strong>
+        Jangan memisahkan sasaran; label tetap tingkat dokumen.</li>
+      <li><strong>Tuntutan dan seruan bertindak biasanya negatif</strong>, karena mengandung
+        ketidakpuasan atas keadaan sekarang. "Usut tuntas!" &rarr; negatif.</li>
+      <li><strong>Jangan menilai berdasarkan setuju atau tidak setujunya Anda.</strong></li>
+      <li><strong>Bahasa daerah dan campur kode</strong> dinilai bila maknanya jelas; bila tidak &rarr; tidak jelas.</li>
+      <li><strong>Emotikon memperkuat, tidak menentukan sendiri.</strong></li>
+    </ol>
+
+    <h3>3. Bila benar-benar tidak bisa diputuskan</h3>
+    <p style="font-size:14px;color:var(--ink2)">
+      Pilih <strong>Tidak jelas</strong>. Jangan menebak. Baris itu tidak masuk test set dan
+      jumlahnya dilaporkan apa adanya. Menebak justru lebih merusak: satu label asal menjadi
+      kesalahan permanen yang dihitung sebagai kesalahan model. Target di bawah 5%.
+    </p>
+
+    <h3>4. Prediksi model: kapan boleh dilihat</h3>
+    <p style="font-size:14px;color:var(--ink2)">
+      Tebakan model <strong>disembunyikan sampai Anda memilih label sendiri</strong>. Ini bukan
+      formalitas: anotator yang melihat tebakan model lebih dulu cenderung menyetujuinya, dan bila
+      itu terjadi angka akurasi yang terukur naik tanpa modelnya berubah sedikit pun &mdash; yang
+      terukur menjadi kesepakatan Anda dengan model, bukan kemampuan model.
+    </p>
+    <p style="font-size:14px;color:var(--ink2)">
+      Urutan yang benar: baca &rarr; putuskan &rarr; baru lihat tebakan model &rarr; ubah
+      <strong>hanya bila Anda menemukan sesuatu yang tadi terlewat</strong>, bukan karena model
+      terlihat lebih yakin. Sistem mencatat berapa banyak label yang berubah setelah tahap itu,
+      dan angkanya dilaporkan di naskah.
+    </p>
+
+    <h3>5. Cara kerja yang disarankan</h3>
+    <ul style="font-size:14px;color:var(--ink2)">
+      <li><strong>Batch 50&ndash;100 baris lalu istirahat.</strong> Anotasi yang lelah tidak konsisten.</li>
+      <li><strong>Jangan tergesa.</strong> Wajarnya 10&ndash;15 detik per komentar.</li>
+      <li><strong>Konsisten lebih penting daripada benar.</strong> Bila menemui kasus yang tidak diatur,
+        putuskan sekali, perlakukan kasus serupa dengan cara sama, dan tulis di kolom catatan.</li>
+      <li>Kemajuan tersimpan otomatis, tetapi tetap <strong>unduh hasilnya</strong> sebelum berhenti lama.</li>
+    </ul>
+
+    <h3>6. Kasus sulit yang sudah diputuskan</h3>
+    <table>
+      <tr><th>Kasus</th><th style="width:90px">Keputusan</th><th>Alasan</th></tr>
+      <tr><td>"Wkwkwk" sendirian</td><td>netral</td><td>tertawa tanpa sasaran</td></tr>
+      <tr><td>"Setuju!"</td><td>positif</td><td>mendukung isi video</td></tr>
+      <tr><td>"Up" / "Hadir" / "Absen"</td><td>netral</td><td>penanda kehadiran, bukan sikap</td></tr>
+      <tr><td>"Ini baru namanya negara"</td><td>positif</td><td>pujian, kecuali ada isyarat sarkasme</td></tr>
+      <tr><td>"Katanya negara hukum"</td><td>negatif</td><td>sindiran</td></tr>
+      <tr><td>Menyebut nama tokoh tanpa predikat</td><td>netral</td><td>tidak ada sikap</td></tr>
+      <tr><td>Nomor telepon, promosi, spam</td><td>tidak jelas</td><td>bukan opini terhadap apa pun</td></tr>
+      <tr><td>Huruf kapital semua</td><td>ikut isinya</td><td>kapital bukan penanda sentimen</td></tr>
+    </table>
+
+    <p style="font-size:13px;color:var(--muted);margin-top:20px">
+      Pedoman lengkap beserta bagian yang harus disalin ke bab metodologi ada di
+      <code>docs/PEDOMAN_ANOTASI.md</code>.
+    </p>
+  </div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+// ===================================================================== CSV
+// Parser kecil yang menangani tanda kutip, kutip ganda di dalam sel, baris
+// baru di dalam sel, dan BOM. Berkas anotasi berisi komentar YouTube - koma,
+// tanda kutip, dan baris baru semuanya lazim di sana, jadi split(',') akan
+// merusak data secara diam-diam.
+function parseCsv(teks) {
+  teks = teks.replace(/^﻿/, '');
+
+  var pemisah = (teks.split('\n')[0].split(';').length > teks.split('\n')[0].split(',').length) ? ';' : ',';
+  var baris = [], sel = [], nilai = '', dalamKutip = false;
+
+  for (var i = 0; i < teks.length; i++) {
+    var c = teks[i];
+
+    if (dalamKutip) {
+      if (c === '"') {
+        if (teks[i + 1] === '"') { nilai += '"'; i++; }
+        else { dalamKutip = false; }
+      } else { nilai += c; }
+      continue;
+    }
+
+    if (c === '"') { dalamKutip = true; }
+    else if (c === pemisah) { sel.push(nilai); nilai = ''; }
+    else if (c === '\r') { /* abaikan */ }
+    else if (c === '\n') { sel.push(nilai); baris.push(sel); sel = []; nilai = ''; }
+    else { nilai += c; }
+  }
+
+  if (nilai !== '' || sel.length) { sel.push(nilai); baris.push(sel); }
+
+  return baris.filter(function (r) { return r.length > 1 || (r[0] || '').trim() !== ''; });
+}
+
+function toCsv(baris) {
+  return baris.map(function (r) {
+    return r.map(function (v) {
+      v = (v === null || v === undefined) ? '' : String(v);
+      return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }).join(',');
+  }).join('\r\n');
+}
+
+// ================================================================== keadaan
+var S = {
+  header: [], baris: [], idx: {}, posisi: 0,
+  mode: 'label', anotator: '', namaBerkas: '', kunci: '',
+  jawab: {}   // id -> {label, note, unclear, dilihat, berubah}
+};
+
+var LABEL = { positive: 'positif', neutral: 'netral', negative: 'negatif' };
+
+function el(id) { return document.getElementById(id); }
+
+function cariKolom(nama) {
+  var i = S.header.indexOf(nama);
+  return i === -1 ? null : i;
+}
+
+function idBaris(r) {
+  return S.idx.id !== null ? (r[S.idx.id] || '').trim() : String(S.baris.indexOf(r));
+}
+
+// Kunci penyimpanan diturunkan dari nama berkas + jumlah baris + mode, supaya
+// dua berkas berbeda tidak saling menimpa kemajuan, dan anotator kedua tidak
+// menimpa pekerjaan anotator pertama di peramban yang sama.
+function hitungKunci() {
+  return 'anotasi:' + S.namaBerkas + ':' + S.baris.length + ':' + S.mode;
+}
+
+// Dibuka lewat file:// sebagian peramban memblokir localStorage sepenuhnya.
+// Aplikasi tetap harus jalan - anotator yang kehilangan pekerjaan karena
+// peringatan yang tidak pernah muncul jauh lebih merugikan daripada fitur yang
+// mati dengan jujur.
+var bisaSimpan = (function () {
+  try { localStorage.setItem('__uji__', '1'); localStorage.removeItem('__uji__'); return true; }
+  catch (e) { return false; }
+})();
+
+function simpan() {
+  if (!bisaSimpan) { return; }
+  try { localStorage.setItem(S.kunci, JSON.stringify(S.jawab)); } catch (e) { bisaSimpan = false; }
+  el('status-simpan').textContent = 'tersimpan';
+  setTimeout(function () { el('status-simpan').textContent = ''; }, 900);
+}
+
+function muatSimpanan() {
+  if (!bisaSimpan) { S.jawab = {}; return; }
+  try {
+    var v = localStorage.getItem(S.kunci);
+    if (v) { S.jawab = JSON.parse(v) || {}; }
+  } catch (e) { S.jawab = {}; }
+}
+
+// ================================================================== render
+function render() {
+  var r = S.baris[S.posisi];
+  if (!r) { return; }
+
+  var id = idBaris(r);
+  var j = S.jawab[id] || {};
+
+  el('komentar').textContent = r[S.idx.text] || '';
+
+  var bagian = [];
+  if (S.idx.segment !== null && r[S.idx.segment]) { bagian.push(r[S.idx.segment]); }
+  bagian.push('id ' + id);
+  el('sumber').textContent = bagian.join(' · ');
+
+  document.querySelectorAll('.pilihan button').forEach(function (b) {
+    b.classList.toggle('on', j.label === b.dataset.v);
+  });
+
+  el('btn-takjelas').classList.toggle('primary', !!j.unclear);
+  el('catatan').value = j.note || '';
+
+  // Tebakan model hanya dibuka setelah anotator memutuskan. Alasannya ada di
+  // pedoman bagian 4, dan itu alasan metodologis, bukan gaya.
+  var kotak = el('model');
+  var punyaPrediksi = S.idx.pred !== null && r[S.idx.pred];
+
+  if (!punyaPrediksi) {
+    kotak.classList.add('sembunyi');
+  } else if (j.label || j.unclear) {
+    var p = (r[S.idx.pred] || '').toLowerCase();
+    var conf = S.idx.conf !== null ? r[S.idx.conf] : '';
+    var teks = '<span class="nilai ' + p + '">' + (LABEL[p] || p) + '</span>';
+    if (conf) { teks += ' <span style="color:var(--muted)">(keyakinan ' + Math.round(parseFloat(conf) * 100) + '%)</span>'; }
+
+    if (j.label && p && j.label !== p) {
+      teks += '<br><span style="color:var(--warn)">Berbeda dari pilihan Anda. Ubah hanya bila Anda menemukan sesuatu yang tadi terlewat.</span>';
+    } else if (j.label && p) {
+      teks += '<br><span style="color:var(--muted)">Sama dengan pilihan Anda.</span>';
+    }
+
+    el('model-isi').innerHTML = teks;
+    kotak.classList.remove('sembunyi');
+    kotak.classList.add('terbuka');
+
+    if (!j.dilihat) { j.dilihat = true; S.jawab[id] = j; }
+  } else {
+    el('model-isi').innerHTML = '<span style="color:var(--muted)">Muncul setelah Anda memilih label. '
+      + 'Memutuskan lebih dulu adalah bagian dari metodenya.</span>';
+    kotak.classList.remove('sembunyi');
+    kotak.classList.remove('terbuka');
+  }
+
+  var terisi = 0, takjelas = 0;
+  S.baris.forEach(function (row) {
+    var a = S.jawab[idBaris(row)];
+    if (a && a.label) { terisi++; }
+    if (a && a.unclear) { takjelas++; }
+  });
+
+  el('bar').style.width = (terisi / S.baris.length * 100) + '%';
+  el('posisi').textContent = 'Baris ' + (S.posisi + 1) + ' dari ' + S.baris.length;
+  el('ringkas').textContent = terisi + ' berlabel · ' + takjelas + ' tidak jelas · '
+    + (S.baris.length - terisi - takjelas) + ' kosong';
+
+  el('btn-prev').disabled = S.posisi === 0;
+  el('btn-next').disabled = S.posisi >= S.baris.length - 1;
+}
+
+function pilih(nilai) {
+  var r = S.baris[S.posisi];
+  var id = idBaris(r);
+  var j = S.jawab[id] || {};
+
+  // Perubahan SETELAH tebakan model terlihat dicatat. Angka itu yang membuat
+  // keputusan menampilkan prediksi bisa dipertanggungjawabkan di naskah.
+  if (j.dilihat && j.label && j.label !== nilai) { j.berubah = true; }
+
+  j.label = nilai;
+  j.unclear = false;
+  S.jawab[id] = j;
+  simpan();
+  render();
+
+  // Maju otomatis hanya bila belum pernah dilihat tebakan modelnya - kalau
+  // sudah, anotator mungkin sedang mempertimbangkan ulang.
+  if (!j.dilihat || S.idx.pred === null) {
+    setTimeout(function () { if (S.posisi < S.baris.length - 1) { S.posisi++; render(); } }, 140);
+  }
+}
+
+function takJelas() {
+  var id = idBaris(S.baris[S.posisi]);
+  var j = S.jawab[id] || {};
+  j.unclear = !j.unclear;
+  if (j.unclear) { j.label = ''; }
+  S.jawab[id] = j;
+  simpan();
+  render();
+}
+
+// ================================================================== ekspor
+function ekspor() {
+  var header = S.header.slice();
+  var kolomUbah = header.indexOf('changed_after_reveal');
+  var kolomAnotator = header.indexOf('annotator');
+
+  if (kolomUbah === -1) { header.push('changed_after_reveal'); kolomUbah = header.length - 1; }
+  if (kolomAnotator === -1) { header.push('annotator'); kolomAnotator = header.length - 1; }
+
+  var kolomLabel = S.idx[S.mode];
+
+  var keluar = [header];
+
+  S.baris.forEach(function (r) {
+    var baris = r.slice();
+    while (baris.length < header.length) { baris.push(''); }
+
+    var j = S.jawab[idBaris(r)] || {};
+
+    if (kolomLabel !== null) { baris[kolomLabel] = j.label || ''; }
+
+    if (S.idx.note !== null) {
+      var catatan = j.note || '';
+      if (j.unclear) { catatan = ('[tidak jelas] ' + catatan).trim(); }
+      baris[S.idx.note] = catatan;
+    }
+
+    baris[kolomUbah] = j.berubah ? '1' : '';
+    baris[kolomAnotator] = S.anotator;
+
+    keluar.push(baris);
+  });
+
+  var blob = new Blob(['﻿' + toCsv(keluar)], { type: 'text/csv;charset=utf-8;' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = S.namaBerkas.replace(/\.csv$/i, '') + '-terisi.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+// ================================================================== muat
+function muat(teks, nama) {
+  var baris = parseCsv(teks);
+
+  if (baris.length < 2) { alert('Berkas kosong atau tidak terbaca.'); return; }
+
+  S.header = baris[0].map(function (h) { return (h || '').trim().toLowerCase(); });
+  S.baris = baris.slice(1);
+  S.namaBerkas = nama;
+
+  S.idx = {
+    id: cariKolom('id'),
+    text: cariKolom('text'),
+    label: cariKolom('label'),
+    label_2: cariKolom('label_2'),
+    note: cariKolom('note'),
+    segment: cariKolom('segment'),
+    pred: cariKolom('model_prediction'),
+    conf: cariKolom('model_confidence')
+  };
+
+  if (S.idx.text === null) {
+    alert('Kolom "text" tidak ditemukan. Pastikan berkasnya berasal dari menu Ambil Sampel.');
+    return;
+  }
+
+  if (S.idx[S.mode] === null) {
+    alert('Kolom "' + S.mode + '" tidak ada di berkas ini.');
+    return;
+  }
+
+  S.kunci = hitungKunci();
+  muatSimpanan();
+
+  // Label yang sudah ada di berkas dianggap pekerjaan sebelumnya.
+  S.baris.forEach(function (r) {
+    var id = idBaris(r);
+    var adaDiBerkas = (r[S.idx[S.mode]] || '').trim().toLowerCase();
+    if (adaDiBerkas && !S.jawab[id]) {
+      var peta = { positif: 'positive', netral: 'neutral', negatif: 'negative',
+                   positive: 'positive', neutral: 'neutral', negative: 'negative' };
+      if (peta[adaDiBerkas]) { S.jawab[id] = { label: peta[adaDiBerkas] }; }
+    }
+  });
+
+  el('pill-berkas').textContent = nama + ' · ' + S.baris.length + ' baris';
+  el('pill-anotator').textContent = S.anotator ? (S.anotator + ' · ' + S.mode) : S.mode;
+  el('btn-ekspor').disabled = false;
+  el('layar-muat').classList.add('sembunyi');
+  el('layar-anotasi').classList.remove('sembunyi');
+  el('tanpa-simpanan').classList.toggle('sembunyi', bisaSimpan);
+
+  lompatKosong();
+}
+
+function lompatKosong() {
+  for (var i = 0; i < S.baris.length; i++) {
+    var j = S.jawab[idBaris(S.baris[i])];
+    if (!j || (!j.label && !j.unclear)) { S.posisi = i; render(); return; }
+  }
+  S.posisi = 0;
+  render();
+}
+
+// ================================================================== ikatan
+el('btn-pilih').addEventListener('click', function () { el('berkas').click(); });
+
+el('berkas').addEventListener('change', function (e) {
+  var f = e.target.files[0];
+  if (!f) { return; }
+  S.anotator = el('nama').value.trim();
+  S.mode = el('mode').value;
+  var fr = new FileReader();
+  fr.onload = function () { muat(fr.result, f.name); };
+  fr.readAsText(f, 'UTF-8');
+});
+
+var drop = el('drop');
+['dragenter', 'dragover'].forEach(function (ev) {
+  drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('aktif'); });
+});
+['dragleave', 'drop'].forEach(function (ev) {
+  drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('aktif'); });
+});
+drop.addEventListener('drop', function (e) {
+  var f = e.dataTransfer.files[0];
+  if (!f) { return; }
+  S.anotator = el('nama').value.trim();
+  S.mode = el('mode').value;
+  var fr = new FileReader();
+  fr.onload = function () { muat(fr.result, f.name); };
+  fr.readAsText(f, 'UTF-8');
+});
+
+document.querySelectorAll('.pilihan button').forEach(function (b) {
+  b.addEventListener('click', function () { pilih(b.dataset.v); });
+});
+
+el('btn-takjelas').addEventListener('click', takJelas);
+
+el('btn-hapus').addEventListener('click', function () {
+  delete S.jawab[idBaris(S.baris[S.posisi])];
+  simpan();
+  render();
+});
+
+el('catatan').addEventListener('input', function () {
+  var id = idBaris(S.baris[S.posisi]);
+  var j = S.jawab[id] || {};
+  j.note = el('catatan').value;
+  S.jawab[id] = j;
+});
+el('catatan').addEventListener('blur', simpan);
+
+el('btn-prev').addEventListener('click', function () { if (S.posisi > 0) { S.posisi--; render(); } });
+el('btn-next').addEventListener('click', function () { if (S.posisi < S.baris.length - 1) { S.posisi++; render(); } });
+el('btn-lompat').addEventListener('click', lompatKosong);
+el('btn-ekspor').addEventListener('click', ekspor);
+
+el('btn-pedoman').addEventListener('click', function () { el('tirai').classList.add('on'); });
+el('btn-tutup').addEventListener('click', function () { el('tirai').classList.remove('on'); });
+el('tirai').addEventListener('click', function (e) { if (e.target === el('tirai')) { el('tirai').classList.remove('on'); } });
+
+document.addEventListener('keydown', function (e) {
+  if (el('tirai').classList.contains('on') && e.key === 'Escape') { el('tirai').classList.remove('on'); return; }
+  if (el('layar-anotasi').classList.contains('sembunyi')) { return; }
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') { return; }
+
+  if (e.key === '1') { pilih('positive'); }
+  else if (e.key === '2') { pilih('neutral'); }
+  else if (e.key === '3') { pilih('negative'); }
+  else if (e.key === '0') { takJelas(); }
+  else if (e.key === 'ArrowLeft') { if (S.posisi > 0) { S.posisi--; render(); } }
+  else if (e.key === 'ArrowRight') { if (S.posisi < S.baris.length - 1) { S.posisi++; render(); } }
+});
+
+// Peringatan sebelum menutup tab bila masih ada yang belum diunduh.
+window.addEventListener('beforeunload', function (e) {
+  if (S.baris.length && Object.keys(S.jawab).length) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+})();
+</script>
+</body>
+</html>
