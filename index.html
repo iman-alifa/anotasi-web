@@ -89,6 +89,22 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px
 .drop.aktif{border-color:var(--accent);background:var(--accent-bg)}
 label.f{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin:14px 0 4px}
 input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font:inherit;font-size:14px}
+.aspek{margin-top:16px;border-top:1px solid var(--line);padding-top:14px}
+.aspek .judul{font-size:12px;font-weight:650;color:var(--ink2);text-transform:uppercase;letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;min-height:30px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-bg);color:#3730a3;
+  border:1px solid #c7d2fe;border-radius:999px;padding:3px 6px 3px 11px;font-size:13px;font-weight:550}
+.chip button{border:0;background:none;color:#6366f1;font-size:15px;line-height:1;padding:0 2px}
+.chip button:hover{color:#312e81}
+.aspek-input{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.aspek-input input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:9px;
+  padding:8px 10px;font:inherit;font-size:14px}
+.usul{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.usul button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:3px 10px;
+  font-size:12px;color:var(--ink2)}
+.usul button:hover{border-color:var(--accent);color:var(--accent)}
+.kosong-aspek{border-color:var(--neu) !important;background:var(--neu-bg) !important;color:var(--neu) !important}
+.komentar.bisa-pilih{cursor:text}
 .sembunyi{display:none !important}
 @media(max-width:560px){.pilihan{grid-template-columns:1fr}}
 </style>
@@ -134,6 +150,15 @@ input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9p
         anotator pertama. Dari situ dihitung tingkat kesepakatan (Cohen's kappa).
       </p>
 
+      <label class="f" style="display:flex;align-items:center;gap:8px;margin-top:16px">
+        <input type="checkbox" id="mode-aspek" checked style="width:auto">
+        Ikut menganotasi aspek
+      </label>
+      <p class="hint" style="margin-top:2px">
+        Aspek dipakai mengukur modul ekstraksi aspek dan ikut dilatihkan pada active learning.
+        Matikan hanya bila peneliti meminta anotasi sentimen saja.
+      </p>
+
       <div class="info biru" style="margin-top:18px">
         Sebelum mulai, baca <strong>Pedoman</strong> di kanan atas. Membacanya sepuluh menit
         menghemat berjam-jam perbaikan, dan konsistensi antar anotator itulah yang menentukan
@@ -175,6 +200,25 @@ input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9p
 
       <textarea id="catatan" placeholder="Catatan (opsional) — tulis alasan bila kasusnya sulit, supaya anotator lain memutuskan dengan cara yang sama."></textarea>
 
+      <div class="aspek sembunyi" id="aspek">
+        <div class="judul">Aspek yang dibicarakan</div>
+        <p class="hint" style="margin:4px 0 0">
+          Sorot kata di dalam komentar untuk menambahkannya, atau ketik sendiri. Tulis
+          <strong>kata benda bentuk dasar</strong> &mdash; objek yang dinilai, bukan sifatnya.
+          Kalau komentar tidak membicarakan aspek apa pun, tekan <strong>Tidak ada aspek</strong>
+          &mdash; itu jawaban yang sah dan tetap dihitung.
+        </p>
+
+        <div class="chips" id="chips"></div>
+
+        <div class="aspek-input">
+          <input type="text" id="aspek-baru" placeholder="ketik aspek lalu Enter, mis. pelayanan" autocomplete="off">
+          <button class="btn" id="btn-tanpa-aspek">Tidak ada aspek</button>
+        </div>
+
+        <div class="usul" id="usul"></div>
+      </div>
+
       <div class="model sembunyi" id="model">
         <div class="judul">Tebakan model</div>
         <div class="isi" id="model-isi"></div>
@@ -193,7 +237,8 @@ input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9p
       <p class="hint" style="margin-top:12px">
         Pintasan: <span class="kbd">1</span> positif &middot; <span class="kbd">2</span> netral &middot;
         <span class="kbd">3</span> negatif &middot; <span class="kbd">0</span> tidak jelas &middot;
-        <span class="kbd">&larr;</span> <span class="kbd">&rarr;</span> pindah baris.
+        <span class="kbd">&larr;</span> <span class="kbd">&rarr;</span> pindah baris &middot;
+        <span class="kbd">a</span> kolom aspek.
         Kemajuan tersimpan otomatis di peramban ini.
       </p>
     </div>
@@ -258,7 +303,40 @@ input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9p
       kesalahan permanen yang dihitung sebagai kesalahan model. Target di bawah 5%.
     </p>
 
-    <h3>4. Prediksi model: kapan boleh dilihat</h3>
+    <h3>4. Anotasi aspek</h3>
+    <p style="font-size:14px;color:var(--ink2)">
+      Aspek adalah <strong>objek yang dinilai</strong> &mdash; kata benda yang menjadi sasaran
+      pendapat, bukan sifat yang diberikan kepadanya. Dipakai untuk mengukur modul ekstraksi aspek,
+      dan ikut dilatihkan pada active learning.
+    </p>
+    <table>
+      <tr><th>Komentar</th><th style="width:150px">Aspek</th><th style="width:120px">Bukan</th></tr>
+      <tr><td>"Pelayanannya cepat sekali"</td><td><code>pelayanan</code></td><td>cepat</td></tr>
+      <tr><td>"Antriannya lama, petugasnya jutek"</td><td><code>antrian</code>, <code>petugas</code></td><td>lama, jutek</td></tr>
+      <tr><td>"Sistem online-nya sering error"</td><td><code>sistem</code></td><td>error</td></tr>
+      <tr><td>"Pak Kapolri harus tegas"</td><td><code>kapolri</code></td><td>tegas</td></tr>
+    </table>
+    <ul style="font-size:14px;color:var(--ink2)">
+      <li><strong>Tulis bentuk dasar</strong> (<code>pelayanan</code>, bukan <code>pelayanannya</code>).
+        Menyorot kata di komentarnya juga boleh &mdash; sistem menyamakan bentuknya sendiri.</li>
+      <li><strong>Satu komentar boleh punya beberapa aspek.</strong> Tandai semuanya.</li>
+      <li><strong>Aspek harus benar-benar disebut.</strong> "Negara ini kacau" tidak punya aspek;
+        "Hukum di negara ini kacau" punya <code>hukum</code>.</li>
+      <li><strong>Jangan terlalu halus, jangan terlalu kasar.</strong> <code>pelayanan</code>, bukan
+        "pelayanan di loket dua"; tetapi <code>antrian</code> dan <code>petugas</code> tetap dua
+        aspek berbeda.</li>
+      <li><strong>Konsisten menamai.</strong> Sudah memakai <code>pelayanan</code>, jangan berganti
+        ke <code>layanan</code>. Aplikasi mengusulkan aspek yang sudah pernah Anda pakai.</li>
+    </ul>
+
+    <div class="info" style="margin:14px 0">
+      <strong>Komentar tanpa aspek: tekan "Tidak ada aspek".</strong> Ini wajib, bukan kerapian.
+      Baris yang dibiarkan kosong dianggap <em>belum ditinjau</em> dan tidak ikut dinilai &mdash;
+      akibatnya aspek yang dikarang model pada komentar semacam itu tidak pernah terhitung sebagai
+      kesalahan, dan presisi yang dilaporkan menjadi lebih tinggi daripada yang sebenarnya.
+    </div>
+
+    <h3>5. Prediksi model: kapan boleh dilihat</h3>
     <p style="font-size:14px;color:var(--ink2)">
       Tebakan model <strong>disembunyikan sampai Anda memilih label sendiri</strong>. Ini bukan
       formalitas: anotator yang melihat tebakan model lebih dulu cenderung menyetujuinya, dan bila
@@ -272,7 +350,7 @@ input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9p
       dan angkanya dilaporkan di naskah.
     </p>
 
-    <h3>5. Cara kerja yang disarankan</h3>
+    <h3>6. Cara kerja yang disarankan</h3>
     <ul style="font-size:14px;color:var(--ink2)">
       <li><strong>Batch 50&ndash;100 baris lalu istirahat.</strong> Anotasi yang lelah tidak konsisten.</li>
       <li><strong>Jangan tergesa.</strong> Wajarnya 10&ndash;15 detik per komentar.</li>
@@ -281,7 +359,7 @@ input[type=text],select{width:100%;border:1px solid var(--line);border-radius:9p
       <li>Kemajuan tersimpan otomatis, tetapi tetap <strong>unduh hasilnya</strong> sebelum berhenti lama.</li>
     </ul>
 
-    <h3>6. Kasus sulit yang sudah diputuskan</h3>
+    <h3>7. Kasus sulit yang sudah diputuskan</h3>
     <table>
       <tr><th>Kasus</th><th style="width:90px">Keputusan</th><th>Alasan</th></tr>
       <tr><td>"Wkwkwk" sendirian</td><td>netral</td><td>tertawa tanpa sasaran</td></tr>
@@ -351,7 +429,7 @@ function toCsv(baris) {
 // ================================================================== keadaan
 var S = {
   header: [], baris: [], idx: {}, posisi: 0,
-  mode: 'label', anotator: '', namaBerkas: '', kunci: '',
+  mode: 'label', anotator: '', namaBerkas: '', kunci: '', aspekAktif: true,
   jawab: {}   // id -> {label, note, unclear, dilihat, berubah}
 };
 
@@ -372,7 +450,8 @@ function idBaris(r) {
 // dua berkas berbeda tidak saling menimpa kemajuan, dan anotator kedua tidak
 // menimpa pekerjaan anotator pertama di peramban yang sama.
 function hitungKunci() {
-  return 'anotasi:' + S.namaBerkas + ':' + S.baris.length + ':' + S.mode;
+  return 'anotasi:' + S.namaBerkas + ':' + S.baris.length + ':' + S.mode
+    + (S.aspekAktif ? ':aspek' : '');
 }
 
 // Dibuka lewat file:// sebagian peramban memblokir localStorage sepenuhnya.
@@ -452,20 +531,147 @@ function render() {
     kotak.classList.remove('terbuka');
   }
 
-  var terisi = 0, takjelas = 0;
+  renderAspek(id, j);
+
+  var terisi = 0, takjelas = 0, aspekSelesai = 0;
   S.baris.forEach(function (row) {
     var a = S.jawab[idBaris(row)];
     if (a && a.label) { terisi++; }
     if (a && a.unclear) { takjelas++; }
+    if (a && Array.isArray(a.aspects)) { aspekSelesai++; }
   });
 
   el('bar').style.width = (terisi / S.baris.length * 100) + '%';
   el('posisi').textContent = 'Baris ' + (S.posisi + 1) + ' dari ' + S.baris.length;
-  el('ringkas').textContent = terisi + ' berlabel · ' + takjelas + ' tidak jelas · '
+  var ringkas = terisi + ' berlabel · ' + takjelas + ' tidak jelas · '
     + (S.baris.length - terisi - takjelas) + ' kosong';
+
+  if (S.aspekAktif && S.idx.aspects !== null) {
+    ringkas += ' · aspek ' + aspekSelesai + '/' + S.baris.length;
+  }
+
+  el('ringkas').textContent = ringkas;
 
   el('btn-prev').disabled = S.posisi === 0;
   el('btn-next').disabled = S.posisi >= S.baris.length - 1;
+}
+
+// ================================================================== aspek
+// Aspek disimpan sebagai larik. Tiga keadaan dibedakan, dan perbedaannya
+// menentukan keabsahan metriknya:
+//   undefined -> belum ditinjau, baris tidak dinilai
+//   []        -> sudah ditinjau, memang tidak ada aspek
+//   [...]     -> ada aspeknya
+// Tanpa keadaan kedua, aspek yang dikarang model pada komentar yang tidak
+// membicarakan apa pun tidak pernah terhitung sebagai false positive.
+function renderAspek(id, j) {
+  var kotak = el('aspek');
+
+  if (!S.aspekAktif || S.idx.aspects === null) {
+    kotak.classList.add('sembunyi');
+    return;
+  }
+
+  kotak.classList.remove('sembunyi');
+
+  var daftar = Array.isArray(j.aspects) ? j.aspects : null;
+  var chips = el('chips');
+  chips.innerHTML = '';
+
+  if (daftar && daftar.length === 0) {
+    var tanda = document.createElement('span');
+    tanda.className = 'chip kosong-aspek';
+    tanda.textContent = 'tidak ada aspek';
+    chips.appendChild(tanda);
+  } else if (daftar) {
+    daftar.forEach(function (a, i) {
+      var c = document.createElement('span');
+      c.className = 'chip';
+      c.textContent = a;
+      var x = document.createElement('button');
+      x.type = 'button';
+      x.textContent = '×';
+      x.title = 'hapus';
+      x.addEventListener('click', function () { hapusAspek(i); });
+      c.appendChild(x);
+      chips.appendChild(c);
+    });
+  } else {
+    var kosong = document.createElement('span');
+    kosong.className = 'hint';
+    kosong.textContent = 'belum ditinjau';
+    chips.appendChild(kosong);
+  }
+
+  el('btn-tanpa-aspek').classList.toggle('primary', !!(daftar && daftar.length === 0));
+
+  // Usulan diambil dari aspek yang sudah dipakai anotator sendiri, bukan dari
+  // daftar bawaan: konsistensi penamaan antar baris jauh lebih penting daripada
+  // kelengkapan kosakata, dan daftar bawaan justru mendorong memilih yang ada.
+  var pakai = {};
+  Object.keys(S.jawab).forEach(function (k) {
+    (S.jawab[k].aspects || []).forEach(function (a) { pakai[a] = (pakai[a] || 0) + 1; });
+  });
+
+  var usul = Object.keys(pakai)
+    .sort(function (a, b) { return pakai[b] - pakai[a]; })
+    .filter(function (a) { return !daftar || daftar.indexOf(a) === -1; })
+    .slice(0, 8);
+
+  var kotakUsul = el('usul');
+  kotakUsul.innerHTML = '';
+  usul.forEach(function (a) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = '+ ' + a;
+    b.addEventListener('click', function () { tambahAspek(a); });
+    kotakUsul.appendChild(b);
+  });
+}
+
+function normalAspek(teks) {
+  return String(teks || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function tambahAspek(teks) {
+  var a = normalAspek(teks);
+  if (!a) { return; }
+
+  var id = idBaris(S.baris[S.posisi]);
+  var j = S.jawab[id] || {};
+  var daftar = Array.isArray(j.aspects) ? j.aspects.slice() : [];
+
+  if (daftar.indexOf(a) === -1) { daftar.push(a); }
+
+  j.aspects = daftar;
+  S.jawab[id] = j;
+  simpan();
+  render();
+}
+
+function hapusAspek(i) {
+  var id = idBaris(S.baris[S.posisi]);
+  var j = S.jawab[id] || {};
+  if (!Array.isArray(j.aspects)) { return; }
+  j.aspects = j.aspects.filter(function (_, k) { return k !== i; });
+  S.jawab[id] = j;
+  simpan();
+  render();
+}
+
+function tanpaAspek() {
+  var id = idBaris(S.baris[S.posisi]);
+  var j = S.jawab[id] || {};
+  // Menekan ulang membatalkan tinjauan, supaya salah tekan bisa dikoreksi.
+  j.aspects = (Array.isArray(j.aspects) && j.aspects.length === 0) ? undefined : [];
+  if (j.aspects === undefined) { delete j.aspects; }
+  S.jawab[id] = j;
+  simpan();
+  render();
 }
 
 function pilih(nilai) {
@@ -483,9 +689,12 @@ function pilih(nilai) {
   simpan();
   render();
 
-  // Maju otomatis hanya bila belum pernah dilihat tebakan modelnya - kalau
-  // sudah, anotator mungkin sedang mempertimbangkan ulang.
-  if (!j.dilihat || S.idx.pred === null) {
+  // Maju otomatis hanya bila tidak ada lagi yang perlu dikerjakan pada baris
+  // ini: tebakan model belum pernah dibuka (kalau sudah, anotator mungkin
+  // sedang mempertimbangkan ulang) dan aspeknya tidak sedang diminta.
+  var menungguAspek = S.aspekAktif && S.idx.aspects !== null && !Array.isArray(j.aspects);
+
+  if ((!j.dilihat || S.idx.pred === null) && !menungguAspek) {
     setTimeout(function () { if (S.posisi < S.baris.length - 1) { S.posisi++; render(); } }, 140);
   }
 }
@@ -520,6 +729,12 @@ function ekspor() {
     var j = S.jawab[idBaris(r)] || {};
 
     if (kolomLabel !== null) { baris[kolomLabel] = j.label || ''; }
+
+    // `-` berarti "sudah ditinjau, tidak ada aspek"; kosong berarti belum
+    // ditinjau. Keduanya harus bisa dibedakan sisi Laravel.
+    if (S.aspekAktif && S.idx.aspects !== null && Array.isArray(j.aspects)) {
+      baris[S.idx.aspects] = j.aspects.length ? j.aspects.join(';') : '-';
+    }
 
     if (S.idx.note !== null) {
       var catatan = j.note || '';
@@ -560,6 +775,7 @@ function muat(teks, nama) {
     label_2: cariKolom('label_2'),
     note: cariKolom('note'),
     segment: cariKolom('segment'),
+    aspects: cariKolom('aspects'),
     pred: cariKolom('model_prediction'),
     conf: cariKolom('model_confidence')
   };
@@ -588,6 +804,25 @@ function muat(teks, nama) {
     }
   });
 
+  // Aspek yang sudah ada di berkas dianggap pekerjaan sebelumnya.
+  if (S.idx.aspects !== null) {
+    S.baris.forEach(function (r) {
+      var id = idBaris(r);
+      var isi = (r[S.idx.aspects] || '').trim();
+
+      if (!isi) { return; }
+
+      var j = S.jawab[id] || {};
+      if (Array.isArray(j.aspects)) { return; }
+
+      j.aspects = (isi === '-' || isi.toLowerCase() === 'tidak ada')
+        ? []
+        : isi.split(';').map(normalAspek).filter(Boolean);
+
+      S.jawab[id] = j;
+    });
+  }
+
   el('pill-berkas').textContent = nama + ' · ' + S.baris.length + ' baris';
   el('pill-anotator').textContent = S.anotator ? (S.anotator + ' · ' + S.mode) : S.mode;
   el('btn-ekspor').disabled = false;
@@ -599,9 +834,14 @@ function muat(teks, nama) {
 }
 
 function lompatKosong() {
+  var perluAspek = S.aspekAktif && S.idx.aspects !== null;
+
   for (var i = 0; i < S.baris.length; i++) {
-    var j = S.jawab[idBaris(S.baris[i])];
-    if (!j || (!j.label && !j.unclear)) { S.posisi = i; render(); return; }
+    var j = S.jawab[idBaris(S.baris[i])] || {};
+    var sentimenKosong = !j.label && !j.unclear;
+    var aspekKosong = perluAspek && !Array.isArray(j.aspects) && !j.unclear;
+
+    if (sentimenKosong || aspekKosong) { S.posisi = i; render(); return; }
   }
   S.posisi = 0;
   render();
@@ -615,6 +855,7 @@ el('berkas').addEventListener('change', function (e) {
   if (!f) { return; }
   S.anotator = el('nama').value.trim();
   S.mode = el('mode').value;
+  S.aspekAktif = el('mode-aspek').checked;
   var fr = new FileReader();
   fr.onload = function () { muat(fr.result, f.name); };
   fr.readAsText(f, 'UTF-8');
@@ -632,6 +873,7 @@ drop.addEventListener('drop', function (e) {
   if (!f) { return; }
   S.anotator = el('nama').value.trim();
   S.mode = el('mode').value;
+  S.aspekAktif = el('mode-aspek').checked;
   var fr = new FileReader();
   fr.onload = function () { muat(fr.result, f.name); };
   fr.readAsText(f, 'UTF-8');
@@ -642,6 +884,28 @@ document.querySelectorAll('.pilihan button').forEach(function (b) {
 });
 
 el('btn-takjelas').addEventListener('click', takJelas);
+el('btn-tanpa-aspek').addEventListener('click', tanpaAspek);
+
+el('aspek-baru').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    tambahAspek(el('aspek-baru').value);
+    el('aspek-baru').value = '';
+  }
+});
+
+// Menyorot kata di dalam komentar menambahkannya sebagai aspek. Jauh lebih
+// cepat daripada mengetik ulang, dan yang lebih penting: ejaannya persis sama
+// dengan yang tertulis, jadi tidak ada aspek yang meleset karena salah ketik.
+el('komentar').addEventListener('mouseup', function () {
+  if (!S.aspekAktif || S.idx.aspects === null) { return; }
+
+  var pilihan = String(window.getSelection());
+  if (pilihan && pilihan.trim().length > 1 && pilihan.trim().split(/\s+/).length <= 3) {
+    tambahAspek(pilihan);
+    window.getSelection().removeAllRanges();
+  }
+});
 
 el('btn-hapus').addEventListener('click', function () {
   delete S.jawab[idBaris(S.baris[S.posisi])];
@@ -675,6 +939,9 @@ document.addEventListener('keydown', function (e) {
   else if (e.key === '2') { pilih('neutral'); }
   else if (e.key === '3') { pilih('negative'); }
   else if (e.key === '0') { takJelas(); }
+  else if (e.key === 'a' || e.key === 'A') {
+    if (S.aspekAktif && S.idx.aspects !== null) { e.preventDefault(); el('aspek-baru').focus(); }
+  }
   else if (e.key === 'ArrowLeft') { if (S.posisi > 0) { S.posisi--; render(); } }
   else if (e.key === 'ArrowRight') { if (S.posisi < S.baris.length - 1) { S.posisi++; render(); } }
 });
